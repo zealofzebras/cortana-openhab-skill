@@ -48,7 +48,7 @@ namespace openHAbot
                     UsePublicServerPrompt,
                     new PromptOptions
                     {
-                        Prompt = MessageFactory.Text("Are you using the public myopenhab.org server?"),
+                        Prompt = MessageFactory.Text("Are you using the public myopenhab.org server?"),                        
                         RetryPrompt = MessageFactory.Text("Sorry, please let me know if you are using the public server"),
                     },
                     cancellationToken);

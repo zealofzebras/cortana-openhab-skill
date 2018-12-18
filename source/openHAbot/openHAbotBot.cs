@@ -9,6 +9,7 @@ using Microsoft.Recognizers.Text;
 using Microsoft.Recognizers.Text.Choice;
 using Microsoft.Recognizers.Text.Sequence;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -104,9 +105,22 @@ namespace openHAbot
                 else if (profile.Valid == false)
                 {
 
-                    await turnContext.SendActivityAsync("Let's get started. For now I can only use basic authentication, which means I will ask for your username and password here.");
-                    // Else, if we don't have the user's name yet, ask for it.
-                    await dc.BeginDialogAsync(LoginDialog.MainDialog);
+
+                    await turnContext.SendActivityAsync("This is the devicedata:" + turnContext.Activity.ChannelData.ToString(), null, InputHints.IgnoringInput);
+                    var valueObj = JsonConvert.DeserializeObject<JObject>(turnContext.Activity.ChannelData.ToString());
+                    var currentAudioObject = JsonConvert.DeserializeObject<JObject>(valueObj["currentAudioInfo"]?.ToString() ?? "");
+
+                    if (currentAudioObject == null)
+                    {
+                        await turnContext.SendActivityAsync("Let's get started. For now I can only use basic authentication, which means I will ask for your username and password here.", "Let's get started", InputHints.IgnoringInput);
+
+                        await dc.BeginDialogAsync(LoginDialog.MainDialog);
+                    }
+                    else
+                    {
+                        await turnContext.SendActivityAsync("I need you to login on another device with a screen", "I cannot configure this service on a speaker only device, sorry.", InputHints.IgnoringInput);
+
+                    }
                 }
                 else
                 {
