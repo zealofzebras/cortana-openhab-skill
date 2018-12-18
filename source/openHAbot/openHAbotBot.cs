@@ -78,7 +78,6 @@ namespace openHAbot
             if (turnContext.Activity.Type == ActivityTypes.Message)
             {
 
-
                 var profile = await _accessors.UserProfileAccessor.GetAsync(turnContext, () => new UserProfile());
                 // Establish context for our dialog from the turn context.
                 DialogContext dc = await loginDialog.CreateContextAsync(turnContext);
@@ -105,7 +104,7 @@ namespace openHAbot
                 else if (profile.Valid == false)
                 {
 
-
+                    
                     await turnContext.SendActivityAsync("This is the devicedata:" + turnContext.Activity.ChannelData.ToString(), null, InputHints.IgnoringInput);
                     var valueObj = JsonConvert.DeserializeObject<JObject>(turnContext.Activity.ChannelData.ToString());
                     var currentAudioObject = JsonConvert.DeserializeObject<JObject>(valueObj["currentAudioInfo"]?.ToString() ?? "");

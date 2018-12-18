@@ -37,19 +37,23 @@ namespace openHAbot
             Add(new TextPrompt(ServerPrompt, ServerUrlValidatorAsync));
             Add(new TextPrompt(TextPrompt));
 
+            
 
-            // Define the main dialog and add it to the set.
-            Add(new WaterfallDialog(MainDialog, new WaterfallStep[]
+        // Define the main dialog and add it to the set.
+        Add(new WaterfallDialog(MainDialog, new WaterfallStep[]
             {
             async (stepContext, cancellationToken) =>
             {
+                var activity = stepContext.Context.Activity;
                 stepContext.Values[UserInfo] = new UserProfile();
+                var reply = activity.CreateReply("Are you using the public myopenhab.org server?");
+                reply.Speak = "What the server name?";
                 return await stepContext.PromptAsync(
                     UsePublicServerPrompt,
                     new PromptOptions
                     {
-                        Prompt = MessageFactory.Text("Are you using the public myopenhab.org server?"),                        
-                        RetryPrompt = MessageFactory.Text("Sorry, please let me know if you are using the public server"),
+                        Prompt = reply,//MessageFactory.(""),                        
+                        //RetryPrompt = MessageFactory.Text("Sorry, please let me know if you are using the public server"),
                     },
                     cancellationToken);
             },
@@ -80,7 +84,7 @@ namespace openHAbot
                     new PromptOptions
                     {
                         Prompt = MessageFactory.Text("What is your username?"),
-                        RetryPrompt = MessageFactory.Text("Sorry, what is your username?"),
+                        //RetryPrompt = MessageFactory.Text("Sorry, what is your username?"),
                     },
                     cancellationToken);
             },
