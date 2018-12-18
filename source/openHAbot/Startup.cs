@@ -90,11 +90,13 @@ namespace openHAbot
                {
                    throw new InvalidOperationException($"The .bot file does not contain an endpoint with name '{environment}'.");
                }
-
-               options.CredentialProvider = new SimpleCredentialProvider(endpointService.AppId, endpointService.AppPassword);
-
                // Creates a logger for the application to use.
                ILogger logger = _loggerFactory.CreateLogger<openHAbotBot>();
+               logger.LogError($"appId : {endpointService.AppId}");
+               //logger.LogError($"appId : {endpointService.AppId}");
+
+               options.CredentialProvider = new SimpleCredentialProvider(endpointService.AppId, endpointService.AppPassword);
+             
 
                // Catches any errors that occur during a conversation turn and logs them.
                options.OnTurnError = async (context, exception) =>
