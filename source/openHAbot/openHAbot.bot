@@ -8,6 +8,12 @@
       "appId": "",
       "appPassword": "",
       "id": "1"
+    },
+    {
+      "type": "endpoint",
+      "id": "2",
+      "name": "production",
+      "url": "https://openhabot.azurewebsites.net/api/messages"
     }
   ],
   "padlock": "",
