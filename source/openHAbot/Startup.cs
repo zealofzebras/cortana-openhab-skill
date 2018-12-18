@@ -95,7 +95,11 @@ namespace openHAbot
                logger.LogError($"appId : {endpointService.AppId}");
                //logger.LogError($"appId : {endpointService.AppId}");
 
-               options.CredentialProvider = new SimpleCredentialProvider(endpointService.AppId, endpointService.AppPassword);
+               string microsoftAppId = Configuration[MicrosoftAppCredentials.MicrosoftAppIdKey];
+               string microsoftAppPassword = Configuration[MicrosoftAppCredentials.MicrosoftAppPasswordKey];
+
+
+               options.CredentialProvider = new SimpleCredentialProvider(microsoftAppId, microsoftAppPassword);
              
 
                // Catches any errors that occur during a conversation turn and logs them.

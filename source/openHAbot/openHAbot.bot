@@ -13,6 +13,8 @@
       "type": "endpoint",
       "id": "2",
       "name": "production",
+      "appId": "",
+      "appPassword": "",
       "endpoint": "https://openhabot.azurewebsites.net/api/messages"
     }
   ],
