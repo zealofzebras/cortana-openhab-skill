@@ -13,7 +13,7 @@
       "type": "endpoint",
       "id": "2",
       "name": "production",
-      "url": "https://openhabot.azurewebsites.net/api/messages"
+      "endpoint": "https://openhabot.azurewebsites.net/api/messages"
     }
   ],
   "padlock": "",
