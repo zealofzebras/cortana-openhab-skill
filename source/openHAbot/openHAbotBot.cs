@@ -104,8 +104,7 @@ namespace openHAbot
                 else if (profile.Valid == false)
                 {
 
-                    
-                    await turnContext.SendActivityAsync("This is the devicedata:" + turnContext.Activity.ChannelData.ToString(), null, InputHints.IgnoringInput);
+
                     var valueObj = JsonConvert.DeserializeObject<JObject>(turnContext.Activity.ChannelData.ToString());
                     var currentAudioObject = JsonConvert.DeserializeObject<JObject>(valueObj["currentAudioInfo"]?.ToString() ?? "");
 
@@ -121,9 +120,18 @@ namespace openHAbot
 
                     }
                 }
+                else if (turnContext.Activity.Text == "logout")
+                {
+                    await turnContext.SendActivityAsync("Logging out", "Sorry to see you go", InputHints.IgnoringInput);
+                    await _accessors.UserProfileAccessor.DeleteAsync(turnContext, cancellationToken);
+
+                }
+                else if (turnContext.Activity.Text == "show device data")
+                {
+                    await turnContext.SendActivityAsync("This is the devicedata:" + turnContext.Activity.ChannelData.ToString(), null, InputHints.IgnoringInput);
+                }
                 else
                 {
-
                     var uri = new Uri(profile.Server).GetLeftPart(UriPartial.Authority) + "/rest/habot/chat";
                     var client = new HttpClient();
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
@@ -131,19 +139,21 @@ namespace openHAbot
 
                     var content = new StringContent(turnContext.Activity.Text);
                     var result = await client.PostAsync(uri, content);
-                    var responseJson = await result.Content.ReadAsStringAsync();
-                    var response = JsonConvert.DeserializeObject<openhab.Response>(responseJson);
-                    await turnContext.SendActivityAsync(response.answer);
-                    if (!string.IsNullOrEmpty(response.hint))
-                        await turnContext.SendActivityAsync(response.hint);
 
+                    if (result.IsSuccessStatusCode)
+                    {
+                        var responseJson = await result.Content.ReadAsStringAsync();
+                        var response = JsonConvert.DeserializeObject<openhab.Response>(responseJson);
+                        await turnContext.SendActivityAsync(response.answer);
+                        if (!string.IsNullOrEmpty(response.hint))
+                            await turnContext.SendActivityAsync(response.hint);
 
-
-                    /*
-                     * {"language":"en","query":"Turn on outside lights","answer":"I found nothing to switch on...","hint":"I was expecting to find relevant items with \"lights\" but none matched.","intent":{"name":"activate-object","entities":{"object":"lights"}}}
-                     */
-                    // Else, echo the user's message text.
-                    //await turnContext.SendActivityAsync($"{profile.Server} did not expect, '{turnContext.Activity.Text}'.");
+                    } else
+                    {
+                        await turnContext.SendActivityAsync("I am not able to connect to the openHAB", "I am not able to connect to the openHAB", InputHints.IgnoringInput);
+                        profile.Valid = false;
+                        await _accessors.UserProfileAccessor.SetAsync(turnContext, profile, cancellationToken);
+                    }
                 }
 
 

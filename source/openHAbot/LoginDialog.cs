@@ -1,6 +1,8 @@
-﻿using Microsoft.Bot.Builder;
+﻿using AdaptiveCards;
+using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
+using Microsoft.Bot.Schema;
 using Microsoft.Recognizers.Text;
 using Microsoft.Recognizers.Text.Sequence;
 using System;
@@ -34,111 +36,74 @@ namespace openHAbot
             Add(new ConfirmPrompt(UsePublicServerPrompt));
             // Add the text prompt to the dialog set.
 
-            Add(new TextPrompt(ServerPrompt, ServerUrlValidatorAsync));
+            Add(new AttachmentPrompt(ServerPrompt, LoginValidatorAsync));
             Add(new TextPrompt(TextPrompt));
 
-            
 
-        // Define the main dialog and add it to the set.
-        Add(new WaterfallDialog(MainDialog, new WaterfallStep[]
-            {
-            async (stepContext, cancellationToken) =>
-            {
-                var activity = stepContext.Context.Activity;
-                stepContext.Values[UserInfo] = new UserProfile();
-                var reply = activity.CreateReply("Are you using the public myopenhab.org server?");
-                reply.Speak = "What the server name?";
-                return await stepContext.PromptAsync(
-                    UsePublicServerPrompt,
-                    new PromptOptions
-                    {
-                        Prompt = reply,//MessageFactory.(""),                        
-                        //RetryPrompt = MessageFactory.Text("Sorry, please let me know if you are using the public server"),
-                    },
-                    cancellationToken);
-            },
-            async (stepContext, cancellationToken) =>
-            {
-                if (!(bool)stepContext.Result)
+
+            // Define the main dialog and add it to the set.
+            Add(new WaterfallDialog(MainDialog, new WaterfallStep[]
                 {
+             EnterLoginInformationStep,
+            async (stepContext, cancellationToken) =>
+            {
+            var json = (Newtonsoft.Json.Linq.JObject)((Microsoft.Bot.Builder.TurnContext)stepContext.Context).Activity.Value;
 
-                    // WaterfallStep always finishes with the end of the Waterfall or with another dialog, here it is a Prompt Dialog.
-                    return await stepContext.PromptAsync(ServerPrompt, new PromptOptions {
-                        Prompt = MessageFactory.Text("Which server url do you want to connect to?.")
-                    }, cancellationToken);
-                }
-                else
+                var profile = new UserProfile()
                 {
-                    ((UserProfile)stepContext.Values[UserInfo]).Server = "https://myopenhab.org:443/"; 
+                    Server = json["server"].ToString(),
+                    Username = json["username"].ToString(),
+                    Password = json["password"].ToString()
+                };
 
-                    // User said "yes" so we will skip the next step. Give -1 as the age.
-                    return await stepContext.NextAsync("https://myopenhab.org:443/", cancellationToken);
-                }
-            },
-            async (stepContext, cancellationToken) =>
-            {
-                ((UserProfile)stepContext.Values[UserInfo]).Server = (string)stepContext.Result;
-
-                return await stepContext.PromptAsync(
-                    TextPrompt,
-                    new PromptOptions
-                    {
-                        Prompt = MessageFactory.Text("What is your username?"),
-                        //RetryPrompt = MessageFactory.Text("Sorry, what is your username?"),
-                    },
-                    cancellationToken);
-            },
-            async (stepContext, cancellationToken) =>
-            {
-                ((UserProfile)stepContext.Values[UserInfo]).Username = (string)stepContext.Result;
-                return await stepContext.PromptAsync(
-                    TextPrompt,
-                    new PromptOptions
-                    {
-                        Prompt = MessageFactory.Text("What is your password?"),
-                        RetryPrompt = MessageFactory.Text("Sorry, what is your password?"),
-                    },
-                    cancellationToken);
-            },
-
-            async (stepContext, cancellationToken) =>
-            {
-                var profile = ((UserProfile)stepContext.Values[UserInfo]);
-                profile.Password = (string)stepContext.Result;
-                // Assume that they entered their name, and return the value.
+                stepContext.Values[UserInfo] = profile;
                 return await stepContext.EndDialogAsync(profile, cancellationToken);
-            },
-            }));
+            }
+                }));
         }
 
-        private async Task<bool> ServerUrlValidatorAsync(PromptValidatorContext<string> promptContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> EnterLoginInformationStep(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            // Check whether the input could be recognized as an integer.
-            if (!promptContext.Recognized.Succeeded)
+            var activity = stepContext.Context.Activity;
+
+            var replyToConversation = activity.CreateReply("Login to openHAB");
+            replyToConversation.Attachments = new List<Attachment>();
+
+            var card = new AdaptiveCard();
+            card.Speak = "<s>Please enter the login information for your openHAB server?</s>";
+            card.Body.Add(new TextBlock() { Text = "Server" });
+            card.Body.Add(new TextInput() { Placeholder = "Server", Value = "https://myopenhab.org:443", Id = "server", Style = TextInputStyle.Url });
+            card.Body.Add(new TextInput() { Placeholder = "Username", Id = "username" });
+            card.Body.Add(new TextInput() { Placeholder = "Password", Id = "password" });
+            card.Actions.Add(new SubmitAction() { Title = "Login" });
+
+            // Create the attachment.
+            Attachment attachment = new Attachment() { ContentType = AdaptiveCard.ContentType, Content = card };
+
+            replyToConversation.Attachments.Add(attachment);
+
+
+            return await stepContext.PromptAsync(ServerPrompt, new PromptOptions
+            {
+                Prompt = replyToConversation
+            }, cancellationToken);
+        }
+
+        private async Task<bool> LoginValidatorAsync(PromptValidatorContext<IList<Attachment>> promptContext, CancellationToken cancellationToken)
+        {
+            var json = (Newtonsoft.Json.Linq.JObject)((Microsoft.Bot.Builder.TurnContext)promptContext.Context).Activity.Value;
+
+            if (json == null || !json.ContainsKey("server") ||
+                string.IsNullOrWhiteSpace(json["server"].ToString()))
             {
                 await promptContext.Context.SendActivityAsync(
-                    "I'm sorry, I could not interpret that as a url. Please tell me the openHAB server url.",
+                    "I could not interpret that as a url. Please tell me the openHAB server name. Like this: https://myopenhab.org:443",
                     cancellationToken: cancellationToken);
                 return false;
             }
 
 
-            var results = SequenceRecognizer.RecognizeURL(promptContext.Recognized.Value, Culture.English);
-            foreach (var result in results)
-            {
-                if (result.Resolution.TryGetValue("value", out object value))
-                {
-
-                    var server = value.ToString();
-                    // TODO, reachable?
-                    return true;
-                }
-            }
-            await promptContext.Context.SendActivityAsync(
-                "I could not interpret that as a url. Please tell me the openHAB server name. Like this: https://myopenhab.org:443",
-                cancellationToken: cancellationToken);
-
-            return false;
+            return true;
         }
 
     }
