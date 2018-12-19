@@ -143,13 +143,13 @@ namespace openHAbot
                     if (result.IsSuccessStatusCode)
                     {
                         var responseJson = await result.Content.ReadAsStringAsync();
-                        var response = JsonConvert.DeserializeObject<openhab.Response>(responseJson);
-                        var fullText = response.answer;
+                        var response = openhab.HaBotResponse.FromJson(responseJson);
+                        var fullText = response.Answer;
 
-                        if (!string.IsNullOrEmpty(response.hint))
-                            fullText += "\n\n" + await turnContext.SendActivityAsync(response.hint);
+                        if (!string.IsNullOrEmpty(response.Hint))
+                            fullText += "\n\n" + await turnContext.SendActivityAsync(response.Hint);
 
-                        await turnContext.SendActivityAsync(fullText, response.answer, InputHints.IgnoringInput);
+                        await turnContext.SendActivityAsync(fullText, response.Answer, InputHints.IgnoringInput);
 
                     } else
                     {
