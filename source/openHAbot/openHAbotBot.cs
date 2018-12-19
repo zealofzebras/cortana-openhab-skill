@@ -120,7 +120,7 @@ namespace openHAbot
 
                     }
                 }
-                else if (turnContext.Activity.Text == "logout")
+                else if (turnContext.Activity.Text.Trim() == "logout" || turnContext.Activity.Text.Trim() == "log out")
                 {
                     await turnContext.SendActivityAsync("Logging out", "Sorry to see you go", InputHints.IgnoringInput);
                     await _accessors.UserProfileAccessor.DeleteAsync(turnContext, cancellationToken);
@@ -144,9 +144,12 @@ namespace openHAbot
                     {
                         var responseJson = await result.Content.ReadAsStringAsync();
                         var response = JsonConvert.DeserializeObject<openhab.Response>(responseJson);
-                        await turnContext.SendActivityAsync(response.answer);
+                        var fullText = response.answer;
+
                         if (!string.IsNullOrEmpty(response.hint))
-                            await turnContext.SendActivityAsync(response.hint);
+                            fullText += "\n\n" + await turnContext.SendActivityAsync(response.hint);
+
+                        await turnContext.SendActivityAsync(fullText, response.answer, InputHints.IgnoringInput);
 
                     } else
                     {
