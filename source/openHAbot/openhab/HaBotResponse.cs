@@ -78,13 +78,13 @@ namespace openHAbot.openhab
         public string Component { get; set; }
 
         [JsonProperty("config")]
-        public CardConfig Config { get; set; }
+        public Config Config { get; set; }
 
         [JsonProperty("slots")]
         public Slots Slots { get; set; }
     }
 
-    public partial class CardConfig
+    public partial class Config
     {
         [JsonProperty("bigger")]
         public bool Bigger { get; set; }
@@ -93,22 +93,19 @@ namespace openHAbot.openhab
     public partial class Slots
     {
         [JsonProperty("right")]
-        public List<Right> Right { get; set; }
+        public List<Slot> Right { get; set; }
+
+        [JsonProperty("item")]
+        public string Item { get; set; }
     }
 
-    public partial class Right
+    public partial class Slot
     {
         [JsonProperty("component")]
         public string Component { get; set; }
 
         [JsonProperty("config")]
-        public RightConfig Config { get; set; }
-    }
-
-    public partial class RightConfig
-    {
-        [JsonProperty("item")]
-        public string Item { get; set; }
+        public Config Config { get; set; }
     }
 
     public partial class Intent
