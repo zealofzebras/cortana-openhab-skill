@@ -33,8 +33,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="OpenHAB.NetRestApi">
-      <HintPath>..\..\dependencies\OpenHAB.NetRestApi.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="..\..\dependencies\RestApi\OpenHAB.NetRestApi\OpenHAB.NetRestApi.csproj" />
   </ItemGroup>
 </Project>

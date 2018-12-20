@@ -1,0 +1,4 @@
+[submodule "dependencies/RestApi"]
+	path = dependencies/RestApi
+	url = https://github.com/zealofzebras/OpenHab.NetRestApi.git
+	branch = development
