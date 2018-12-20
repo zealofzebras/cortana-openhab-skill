@@ -155,9 +155,9 @@ namespace openHAbot
 
                         var client = OpenHAB.NetRestApi.RestApi.OpenHab.CreateRestClient(new Uri(new Uri(profile.Server), "rest/"),
                             profile.Username, profile.Password, false);
-                        
 
-                        var items = await client.ItemService.GetItemsAsync(cancellationToken);                       
+
+                        var items = await client.ItemService.GetItemsAsync(cancellationToken);
 
                         await turnContext.SendActivityAsync($"There are {items.Count} items", $"I found {items.Count} items on the openhab instance", InputHints.IgnoringInput);
                     }
@@ -177,14 +177,14 @@ namespace openHAbot
                     {
                         const string resource = "/habot/chat";
 
-                        var response = await client.ExecuteRequestAsync<openhab.HaBotResponse>(RestSharp.Method.POST, resource, turnContext.Activity.Text, 
-                            new OpenHAB.NetRestApi.Models.RequestHeaderCollection() { OpenHAB.NetRestApi.Models.RequestHeader.ContentPlainText }, 
+                        var response = await client.ExecuteRequestAsync<openhab.HaBotResponse>(RestSharp.Method.POST, resource, turnContext.Activity.Text,
+                            new OpenHAB.NetRestApi.Models.RequestHeaderCollection() { OpenHAB.NetRestApi.Models.RequestHeader.ContentPlainText },
                             token: cancellationToken);
 
                         var fullText = response.Answer;
 
                         if (!string.IsNullOrEmpty(response.Hint))
-                            fullText += "\n\n" + await turnContext.SendActivityAsync(response.Hint);
+                            fullText += "\n\n" + response.Hint;
 
 
 
@@ -196,24 +196,35 @@ namespace openHAbot
                         {
                             reply.Attachments = new List<Attachment>();
 
+                            if (string.IsNullOrWhiteSpace(response.Card.Title))
+                                reply.Speak = "The " + response.Card.Title + "is";
 
                             var card = new AdaptiveCards.AdaptiveCard();
-                            foreach (var slot in response.Card.Slots.List)
-                            {
-                                card.Body.Add(await SlotToElement(slot, client));
-                            }                            
+                            card.Title = response.Card.Title;
+                            if (response.Card.Slots?.List != null)
+                                foreach (var slot in response.Card.Slots.List)
+                                {
+                                    card.Body.Add(await SlotToElement(slot, client));
+                                }
+
+                            if (response.Card.Slots?.Right != null)
+                                foreach (var slot in response.Card.Slots.Right)
+                                {
+                                    card.Body.Add(await SlotToElement(slot, client));
+                                }
 
                             // Create the attachment.
                             Attachment attachment = new Attachment() { ContentType = AdaptiveCards.AdaptiveCard.ContentType, Content = card };
 
                             reply.Attachments.Add(attachment);
 
-                        }                                 
+                        }
 
 
                         await turnContext.SendActivityAsync(reply);
 
-                    } catch (Exception ex )
+                    }
+                    catch (Exception ex)
                     {
                         await turnContext.SendActivityAsync("I am not able to connect to the openHAB", "I am not able to connect to the openHAB", InputHints.IgnoringInput);
                     }
@@ -235,13 +246,24 @@ namespace openHAbot
             }
         }
 
-        
+
         public async Task<AdaptiveCards.CardElement> SlotToElement(openhab.Slot slot, OpenHabRestClient client)
         {
             switch (slot.Component)
             {
+                case "HbSingleItemValue":
+
+                    var singleItem = new AdaptiveCards.TextBlock();
+                    if (slot.Config.Label != null)
+                        singleItem.Text = slot.Config.Label + " = ";
+
+                    var singleItemState = await client.ItemService.GetItemStateAsync(slot.Config.Item);
+
+                    singleItem.Text += singleItemState.Content;
+                    return singleItem;
+
                 case "HbList":
-                    
+
                     var list = new AdaptiveCards.FactSet();
                     foreach (var slotItem in slot.Slots.Items)
                     {
@@ -255,11 +277,11 @@ namespace openHAbot
                         list.Facts.Add(fact);
                     }
                     return list;
-                    
+
                 default:
                     return new AdaptiveCards.TextBlock() { Text = "Component: " + slot.Component };
             }
-        } 
+        }
 
     }
 }
