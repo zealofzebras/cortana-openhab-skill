@@ -88,12 +88,25 @@ namespace openHAbot.openhab
     {
         [JsonProperty("bigger")]
         public bool Bigger { get; set; }
+        
+        [JsonProperty("item")]
+        public string Item { get; set; }
+
+        [JsonProperty("label")]
+        public string Label { get; set; }
+        
     }
 
     public partial class Slots
     {
         [JsonProperty("right")]
         public List<Slot> Right { get; set; }
+        
+        [JsonProperty("list")]
+        public List<Slot> List { get; set; }
+
+        [JsonProperty("items")]
+        public List<Slot> Items { get; set; }
 
         [JsonProperty("item")]
         public string Item { get; set; }
@@ -106,6 +119,9 @@ namespace openHAbot.openhab
 
         [JsonProperty("config")]
         public Config Config { get; set; }
+
+        [JsonProperty("slots")]
+        public Slots Slots { get; set; }
     }
 
     public partial class Intent

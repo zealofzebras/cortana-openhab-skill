@@ -5,9 +5,12 @@ using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Schema;
 using Microsoft.Recognizers.Text;
 using Microsoft.Recognizers.Text.Sequence;
+using OpenHAB.NetRestApi.RestApi;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -93,22 +96,79 @@ namespace openHAbot
         {
             var json = (Newtonsoft.Json.Linq.JObject)((Microsoft.Bot.Builder.TurnContext)promptContext.Context).Activity.Value;
 
-            if (json == null || !json.ContainsKey("server") ||
-                string.IsNullOrWhiteSpace(json["server"].ToString()))
+
+            if (json == null || !json.ContainsKey("server"))
             {
                 await promptContext.Context.SendActivityAsync(
-                    "I could not interpret that as a url. Please tell me the openHAB server name. Like this: https://myopenhab.org:443",
+                    "Something went wrong and I did not receive any configuration",
+                    cancellationToken: cancellationToken);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(json["server"].ToString()))
+            {
+                await promptContext.Context.SendActivityAsync(
+                    "The server field is empty. Please tell me the openHAB server name. Like this: https://myopenhab.org:443",
+                    cancellationToken: cancellationToken);
+                return false;
+            }
+
+            if (!Uri.TryCreate(json["server"].ToString(), UriKind.Absolute, out var outUri)
+               && (outUri.Scheme == Uri.UriSchemeHttp || outUri.Scheme == Uri.UriSchemeHttps))
+            {
+                await promptContext.Context.SendActivityAsync(
+                    "I could not enterpret the server field as a url. Please tell me the openHAB server name. Like this: https://myopenhab.org:443",
+                    cancellationToken: cancellationToken);
+                return false;
+            }
+
+            if (outUri.ToString().Contains("/rest"))
+            {
+                await promptContext.Context.SendActivityAsync(
+                    "Please leave out the \"/rest\" part of the url, I just need to know the root of your openhab installation, like this: https://myopenhab.org:443",
                     cancellationToken: cancellationToken);
                 return false;
             }
 
 
-            return true;
+            // Check reachability of the url
+            try
+            {
+                var request = (HttpWebRequest)HttpWebRequest.Create(outUri);
+                request.Timeout = 3000;
+                request.AllowAutoRedirect = false; // find out if this site is up and don't follow a redirector
+                request.Method = "HEAD";
+
+                using (var response = request.GetResponse())
+                {
+                    // connected now check if we can login
+                    try
+                    {
+                        var client = OpenHAB.NetRestApi.RestApi.OpenHab.CreateRestClient(outUri,
+                            json["username"].ToString(), json["password"].ToString(), false);
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine(ex.ToString());
+                        await promptContext.Context.SendActivityAsync(
+                            "I was not able to connect to the server with the provided credentials, are you sure you gave the correct information?",
+                            cancellationToken: cancellationToken);
+                        return false;
+
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.ToString());
+                await promptContext.Context.SendActivityAsync(
+                    "I was not able to find the server online, are you sure you gave the correct information?",
+                    cancellationToken: cancellationToken);
+                return false;
+            }
+
         }
 
     }
 }
-
-/*
-    
-     */

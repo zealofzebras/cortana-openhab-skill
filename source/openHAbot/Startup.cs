@@ -28,6 +28,10 @@ namespace openHAbot
 
         public Startup(IHostingEnvironment env)
         {
+            // Enable fiddler for debug
+#if DEBUG
+            OpenHAB.NetRestApi.RestApi.OpenHab.Proxy = new System.Net.WebProxy("127.0.0.1", 8888);
+#endif
 
 
             _isProduction = env.IsProduction();

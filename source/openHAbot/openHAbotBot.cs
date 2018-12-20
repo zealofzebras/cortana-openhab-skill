@@ -10,8 +10,10 @@ using Microsoft.Recognizers.Text.Choice;
 using Microsoft.Recognizers.Text.Sequence;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using OpenHAB.NetRestApi.RestApi;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
@@ -120,7 +122,7 @@ namespace openHAbot
 
                     }
                 }
-                else if (turnContext.Activity.Text.Trim() == "logout" || turnContext.Activity.Text.Trim() == "log out")
+                else if (turnContext.Activity.Text.Trim().Replace(" ", "") == "logout")
                 {
                     await turnContext.SendActivityAsync("Logging out", "Sorry to see you go", InputHints.IgnoringInput);
                     await _accessors.UserProfileAccessor.DeleteAsync(turnContext, cancellationToken);
@@ -130,33 +132,92 @@ namespace openHAbot
                 {
                     await turnContext.SendActivityAsync("This is the devicedata:" + turnContext.Activity.ChannelData.ToString(), null, InputHints.IgnoringInput);
                 }
+                else if (turnContext.Activity.Text == "test connection")
+                {
+                    try
+                    {
+                        var client = OpenHAB.NetRestApi.RestApi.OpenHab.CreateRestClient(new Uri(profile.Server),
+                            profile.Username, profile.Password, false);
+                        await turnContext.SendActivityAsync("All is well", "I am connected to the openhab server", InputHints.IgnoringInput);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine(ex.ToString());
+                        await turnContext.SendActivityAsync("I experienced an error:" + ex.ToString(), null, InputHints.IgnoringInput);
+
+                    }
+                }
+                else if (turnContext.Activity.Text == "enumerate items")
+                {
+                    try
+                    {
+                        await turnContext.SendActivityAsync("Please wait", "I am getting the list of items on the openhab instance", InputHints.IgnoringInput);
+
+                        var client = OpenHAB.NetRestApi.RestApi.OpenHab.CreateRestClient(new Uri(new Uri(profile.Server), "rest/"),
+                            profile.Username, profile.Password, false);
+                        
+
+                        var items = await client.ItemService.GetItemsAsync(cancellationToken);                       
+
+                        await turnContext.SendActivityAsync($"There are {items.Count} items", $"I found {items.Count} items on the openhab instance", InputHints.IgnoringInput);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine(ex.ToString());
+                        await turnContext.SendActivityAsync("I experienced an error:" + ex.ToString(), null, InputHints.IgnoringInput);
+
+                    }
+                }
                 else
                 {
-                    var uri = new Uri(profile.Server).GetLeftPart(UriPartial.Authority) + "/rest/habot/chat";
-                    var client = new HttpClient();
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
-                            Convert.ToBase64String(System.Text.ASCIIEncoding.ASCII.GetBytes(string.Format("{0}:{1}", profile.Username, profile.Password))));
+                    var client = OpenHAB.NetRestApi.RestApi.OpenHab.CreateRestClient(new Uri(new Uri(profile.Server), "rest/"),
+                        profile.Username, profile.Password, false);
 
-                    var content = new StringContent(turnContext.Activity.Text);
-                    var result = await client.PostAsync(uri, content);
-
-                    if (result.IsSuccessStatusCode)
+                    try
                     {
-                        var responseJson = await result.Content.ReadAsStringAsync();
-                        var response = openhab.HaBotResponse.FromJson(responseJson);
+                        const string resource = "/habot/chat";
+
+                        var response = await client.ExecuteRequestAsync<openhab.HaBotResponse>(RestSharp.Method.POST, resource, turnContext.Activity.Text, 
+                            new OpenHAB.NetRestApi.Models.RequestHeaderCollection() { OpenHAB.NetRestApi.Models.RequestHeader.ContentPlainText }, 
+                            token: cancellationToken);
+
                         var fullText = response.Answer;
 
                         if (!string.IsNullOrEmpty(response.Hint))
                             fullText += "\n\n" + await turnContext.SendActivityAsync(response.Hint);
 
-                        await turnContext.SendActivityAsync(fullText, response.Answer, InputHints.IgnoringInput);
 
-                    } else
+
+                        var reply = turnContext.Activity.CreateReply(fullText);
+                        reply.Speak = response.Answer;
+                        reply.InputHint = InputHints.AcceptingInput;
+
+                        if (response.Card != null)
+                        {
+                            reply.Attachments = new List<Attachment>();
+
+
+                            var card = new AdaptiveCards.AdaptiveCard();
+                            foreach (var slot in response.Card.Slots.List)
+                            {
+                                card.Body.Add(await SlotToElement(slot, client));
+                            }                            
+
+                            // Create the attachment.
+                            Attachment attachment = new Attachment() { ContentType = AdaptiveCards.AdaptiveCard.ContentType, Content = card };
+
+                            reply.Attachments.Add(attachment);
+
+                        }                                 
+
+
+                        await turnContext.SendActivityAsync(reply);
+
+                    } catch (Exception ex )
                     {
                         await turnContext.SendActivityAsync("I am not able to connect to the openHAB", "I am not able to connect to the openHAB", InputHints.IgnoringInput);
-                        profile.Valid = false;
-                        await _accessors.UserProfileAccessor.SetAsync(turnContext, profile, cancellationToken);
                     }
+
                 }
 
 
@@ -174,8 +235,31 @@ namespace openHAbot
             }
         }
 
+        
+        public async Task<AdaptiveCards.CardElement> SlotToElement(openhab.Slot slot, OpenHabRestClient client)
+        {
+            switch (slot.Component)
+            {
+                case "HbList":
+                    
+                    var list = new AdaptiveCards.FactSet();
+                    foreach (var slotItem in slot.Slots.Items)
+                    {
+                        var fact = new AdaptiveCards.Fact();
+                        var itemState = await client.ItemService.GetItemStateAsync(slotItem.Config.Item);
 
+                        fact.Speak = $"{slotItem.Config.Label} is {itemState.Content}";
 
+                        fact.Title = slotItem.Config.Label;
+                        fact.Value = itemState.Content;
+                        list.Facts.Add(fact);
+                    }
+                    return list;
+                    
+                default:
+                    return new AdaptiveCards.TextBlock() { Text = "Component: " + slot.Component };
+            }
+        } 
 
     }
 }

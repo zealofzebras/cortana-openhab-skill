@@ -25,10 +25,16 @@
     <PackageReference Include="Microsoft.Recognizers.Text.Choice" Version="1.1.4" />
     <PackageReference Include="Microsoft.Recognizers.Text.Sequence" Version="1.1.4" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
-    <PackageReference Include="OpenHAB.NetRestApi" Version="0.1.3" />
+    <PackageReference Include="RestSharp" Version="106.5.4" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="cards\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="OpenHAB.NetRestApi">
+      <HintPath>..\..\dependencies\OpenHAB.NetRestApi.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>
